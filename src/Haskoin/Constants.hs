@@ -69,8 +69,8 @@ btc =
         , getAddrPrefix = 0
         , getScriptPrefix = 5
         , getSecretPrefix = 128
-        , getExtPubKeyPrefix = 0x0488b21e
-        , getExtSecretPrefix = 0x0488ade4
+        , getExtPubKeyPrefix = [0x0488b21e, 0x049d7cb2, 0x04b24746]
+        , getExtSecretPrefix = [0x0488ade4, 0x049d7878, 0x04b2430c]
         , getNetworkMagic = 0xf9beb4d9
         , getGenesisHeader =
             BlockHeader
@@ -184,8 +184,8 @@ btcTest =
         , getAddrPrefix = 111
         , getScriptPrefix = 196
         , getSecretPrefix = 239
-        , getExtPubKeyPrefix = 0x043587cf
-        , getExtSecretPrefix = 0x04358394
+        , getExtPubKeyPrefix = [0x043587cf, 0x044a5262, 0x045f1cf6]
+        , getExtSecretPrefix = [0x04358394, 0x044a4e28, 0x045f18bc]
         , getNetworkMagic = 0x0b110907
         , getGenesisHeader =
             BlockHeader
@@ -245,8 +245,8 @@ btcRegTest =
         , getAddrPrefix = 111
         , getScriptPrefix = 196
         , getSecretPrefix = 239
-        , getExtPubKeyPrefix = 0x043587cf
-        , getExtSecretPrefix = 0x04358394
+        , getExtPubKeyPrefix = [0x043587cf]
+        , getExtSecretPrefix = [0x04358394]
         , getNetworkMagic = 0xfabfb5da
         , getGenesisHeader =
             BlockHeader
@@ -296,8 +296,8 @@ bch =
         , getAddrPrefix = 0
         , getScriptPrefix = 5
         , getSecretPrefix = 128
-        , getExtPubKeyPrefix = 0x0488b21e
-        , getExtSecretPrefix = 0x0488ade4
+        , getExtPubKeyPrefix = [0x0488b21e]
+        , getExtSecretPrefix = [0x0488ade4]
         , getNetworkMagic = 0xe3e1f3e8
         , getGenesisHeader =
             BlockHeader
@@ -417,8 +417,8 @@ bchTest4 =
         , getAddrPrefix = 111
         , getScriptPrefix = 196
         , getSecretPrefix = 239
-        , getExtPubKeyPrefix = 0x043587cf
-        , getExtSecretPrefix = 0x04358394
+        , getExtPubKeyPrefix = [0x043587cf]
+        , getExtSecretPrefix = [0x04358394]
         , getNetworkMagic = 0xe2b7daaf
         , getGenesisHeader =
             BlockHeader
@@ -491,8 +491,8 @@ bchTest =
         , getAddrPrefix = 111
         , getScriptPrefix = 196
         , getSecretPrefix = 239
-        , getExtPubKeyPrefix = 0x043587cf
-        , getExtSecretPrefix = 0x04358394
+        , getExtPubKeyPrefix = [0x043587cf]
+        , getExtSecretPrefix = [0x04358394]
         , getNetworkMagic = 0xf4e5f3f4
         , getGenesisHeader =
             BlockHeader
@@ -562,8 +562,8 @@ bchRegTest =
         , getAddrPrefix = 111
         , getScriptPrefix = 196
         , getSecretPrefix = 239
-        , getExtPubKeyPrefix = 0x043587cf
-        , getExtSecretPrefix = 0x04358394
+        , getExtPubKeyPrefix = [0x043587cf]
+        , getExtSecretPrefix = [0x04358394]
         , getNetworkMagic = 0xdab5bffa
         , getGenesisHeader =
             BlockHeader

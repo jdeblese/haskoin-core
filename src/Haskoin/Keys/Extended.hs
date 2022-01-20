@@ -454,7 +454,7 @@ xPrvWif net xkey = toWif net (wrapSecKey True (xPrvKey xkey))
 getXPrvKey :: MonadGet m => Network -> m XPrvKey
 getXPrvKey net = do
     ver <- getWord32be
-    unless (ver == getExtSecretPrefix net) $
+    unless (elem ver $ getExtSecretPrefix net) $
         fail
             "Get: Invalid version for extended private key"
     deserialize
@@ -462,14 +462,15 @@ getXPrvKey net = do
 -- | Serialize an extended private key.
 putXPrvKey :: MonadPut m => Network -> XPrvKey -> m ()
 putXPrvKey net k = do
-    putWord32be $ getExtSecretPrefix net
+    -- FIXME select the prefix based on properties of the key
+    putWord32be $ head $ getExtSecretPrefix net
     serialize k
 
 -- | Parse a binary extended public key.
 getXPubKey :: MonadGet m => Network -> m XPubKey
 getXPubKey net = do
     ver <- getWord32be
-    unless (ver == getExtPubKeyPrefix net) $
+    unless (elem ver $ getExtPubKeyPrefix net) $
         fail
             "Get: Invalid version for extended public key"
     deserialize
@@ -477,7 +478,8 @@ getXPubKey net = do
 -- | Serialize an extended public key.
 putXPubKey :: MonadPut m => Network -> XPubKey -> m ()
 putXPubKey net k = do
-    putWord32be $ getExtPubKeyPrefix net
+    -- FIXME select the prefix based on properties of the key
+    putWord32be $ head $ getExtPubKeyPrefix net
     serialize k
 
 {- Derivation helpers -}

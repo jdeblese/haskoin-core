@@ -31,9 +31,9 @@ data Network = Network
     , -- | prefix for WIF private key
       getSecretPrefix :: !Word8
     , -- | prefix for extended public key
-      getExtPubKeyPrefix :: !Word32
+      getExtPubKeyPrefix :: ![Word32]
     , -- | prefix for extended private key
-      getExtSecretPrefix :: !Word32
+      getExtSecretPrefix :: ![Word32]
     , -- | network magic
       getNetworkMagic :: !Word32
     , -- | genesis block header

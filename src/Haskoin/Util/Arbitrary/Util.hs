@@ -28,6 +28,7 @@ module Haskoin.Util.Arbitrary.Util (
     testRead,
     testJson,
     testNetJson,
+    testImplicitNetJson,
     arbitraryNetData,
     genNetData,
 ) where
@@ -192,6 +193,33 @@ testNetJson j e p g = do
     dec net = A.parseMaybe (p net) . fromMap <=< A.decode
     name = show $ T.typeRep $ proxy j
     proxy :: (Network -> a -> A.Value) -> Proxy a
+    proxy = const Proxy
+
+testImplicitNetJson ::
+    (Eq a, Show a, T.Typeable a) =>
+    (a -> A.Value) ->
+    (a -> A.Encoding) ->
+    (a -> Network) ->
+    (a -> Network -> Bool) ->
+    (Network -> A.Value -> A.Parser a) ->
+    Gen a ->
+    Spec
+testImplicitNetJson j e n ain p g = do
+    prop ("Data.Aeson toJSON/fromJSON identity (implicit network) for " <> name) $
+        forAll g $ \x -> dec (n x) (encVal x) `shouldBe` Just x
+    prop ("Data.Aeson toEncoding/fromJSON identity (implicit network) for " <> name) $
+        forAll g $ \x -> dec (n x) (encEnc x) `shouldBe` Just x
+    let ng = genNetData g
+    prop ("Data.Aeson toJSON/fromJSON identity (verifying network) for " <> name) $
+        forAll ng $ \(net, a) -> dec net (encVal a) `shouldBe` if ain a net then Just a else Nothing
+    prop ("Data.Aeson toEncoding/fromJSON identity (implicit network) for " <> name) $
+        forAll ng $ \(net, a) -> dec net (encEnc a) `shouldBe` if ain a net then Just a else Nothing
+  where
+    encVal = A.encode . toMap . j
+    encEnc = A.encodingToLazyByteString . toMapE . e
+    dec net = A.parseMaybe (p net) . fromMap <=< A.decode
+    name = show $ T.typeRep $ proxy j
+    proxy :: (a -> A.Value) -> Proxy a
     proxy = const Proxy
 
 arbitraryNetData :: Arbitrary a => Gen (Network, a)

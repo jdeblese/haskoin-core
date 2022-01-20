@@ -53,34 +53,30 @@ jsonVals =
     , JsonBox arbitraryParsedPath
     ]
 
+-- Not used, network is implicit in the key so must be tested elsewhere
 netVals :: [NetBox]
-netVals =
-    [ NetBox
-        ( xPrvToJSON
-        , xPrvToEncoding
-        , xPrvFromJSON
-        , genNetData arbitraryXPrvKey
-        )
-    , NetBox
-        ( xPubToJSON
-        , xPubToEncoding
-        , xPubFromJSON
-        , genNetData (snd <$> arbitraryXPubKey)
-        )
-    ]
+netVals = []
 
 spec :: Spec
 spec = do
     testIdentity serialVals readVals jsonVals netVals
     describe "Custom identity tests" $ do
+        testImplicitNetJson xPrvToJSON xPrvToEncoding (netByXPrvKeyVersion . xPrvVersion) (\key net -> elem (xPrvVersion key) (getExtSecretPrefix net)) xPrvFromJSON arbitraryXPrvKey
+        testImplicitNetJson xPubToJSON xPubToEncoding (netByXPubKeyVersion . xPubVersion) (\key net -> elem (xPubVersion key) (getExtPubKeyPrefix net)) xPubFromJSON (snd <$> arbitraryXPubKey)
         prop "encodes and decodes extended private key" $
+            forAll arbitraryXPrvKey $ \key ->
+                customCerealID (getXPrvKey $ netByXPrvKeyVersion $ xPrvVersion key) putXPrvKey key
+        prop "decoding extended private key succeeeds only with correct network" $
             forAll arbitraryNetwork $ \net ->
-                forAll arbitraryXPrvKey $
-                    customCerealID (getXPrvKey net) (putXPrvKey net)
+                forAll arbitraryXPrvKey $ \key ->
+                    customCerealID (getXPrvKey net) putXPrvKey key `shouldBe` (elem (xPrvVersion key) $ getExtSecretPrefix net)
         prop "encodes and decodes extended public key" $
+            forAll arbitraryXPubKey $ \key ->
+                customCerealID (getXPubKey $ netByXPubKeyVersion $ xPubVersion $ snd key) putXPubKey (snd key)
+        prop "decoding extended public key succeeeds only with correct network" $
             forAll arbitraryNetwork $ \net ->
-                forAll arbitraryXPubKey $
-                    customCerealID (getXPubKey net) (putXPubKey net) . snd
+                forAll arbitraryXPubKey $ \(_, key) ->
+                    customCerealID (getXPubKey net) putXPubKey key `shouldBe` (elem (xPubVersion key) $ getExtPubKeyPrefix net)
     describe "bip32 subkey derivation vector 1" $ vectorSpec m1 vector1
     describe "bip32 subkey derivation vector 2" $ vectorSpec m2 vector2
     describe "bip32 subkey derivation vector 3" $ vectorSpec m3 vector3
@@ -108,15 +104,14 @@ spec = do
             forAll arbitrarySoftPath $ \p ->
                 toSoft (listToPath $ pathToList p) == Just p
     describe "Extended Keys" $ do
-        let net = btc
         prop "computes pubkey of a subkey is subkey of the pubkey" $
             forAll arbitraryXPrvKey pubKeyOfSubKeyIsSubKeyOfPubKey
         prop "exports and imports extended private key" $
             forAll arbitraryXPrvKey $ \k ->
-                xPrvImport net (xPrvExport net k) == Just k
+                xPrvImport (netByXPrvKeyVersion $ xPrvVersion k) (xPrvExport k) == Just k
         prop "exports and imports extended public key" $
             forAll arbitraryXPubKey $ \(_, k) ->
-                xPubImport net (xPubExport net k) == Just k
+                xPubImport (netByXPubKeyVersion $ xPubVersion k) (xPubExport k) == Just k
 
 pubKeyOfSubKeyIsSubKeyOfPubKey :: XPrvKey -> Word32 -> Bool
 pubKeyOfSubKeyIsSubKeyOfPubKey k i =
@@ -352,10 +347,10 @@ runVector m v = do
         encodeHex (exportPubKey True $ xPubKey $ deriveXPubKey m) == v !! 6
     assertBool "chain code" $ encodeHex (runPutS . serialize $ xPrvChain m) == v !! 7
     assertBool "Hex PubKey" $
-        encodeHex (runPutS $ putXPubKey btc $ deriveXPubKey m) == v !! 8
-    assertBool "Hex PrvKey" $ encodeHex (runPutS (putXPrvKey btc m)) == v !! 9
-    assertBool "Base58 PubKey" $ xPubExport btc (deriveXPubKey m) == v !! 10
-    assertBool "Base58 PrvKey" $ xPrvExport btc m == v !! 11
+        encodeHex (runPutS $ putXPubKey $ deriveXPubKey m) == v !! 8
+    assertBool "Hex PrvKey" $ encodeHex (runPutS (putXPrvKey m)) == v !! 9
+    assertBool "Base58 PubKey" $ xPubExport (deriveXPubKey m) == v !! 10
+    assertBool "Base58 PrvKey" $ xPrvExport m == v !! 11
 
 -- This function was used to generate addition data for the test vectors
 genVector :: XPrvKey -> [(Text, Text)]
@@ -372,15 +367,15 @@ genVector m =
     , ("xPrvWIF", xPrvWif btc m)
     , ("pubKey", encodeHex (exportPubKey True $ xPubKey $ deriveXPubKey m))
     , ("chain code", encodeHex (runPutS . serialize $ xPrvChain m))
-    , ("Hex PubKey", encodeHex (runPutS $ putXPubKey btc $ deriveXPubKey m))
-    , ("Hex PrvKey", encodeHex (runPutS (putXPrvKey btc m)))
+    , ("Hex PubKey", encodeHex (runPutS $ putXPubKey $ deriveXPubKey m))
+    , ("Hex PrvKey", encodeHex (runPutS (putXPrvKey m)))
     ]
 
 parseVector :: TestKey -> [TestVector] -> [(Text, XPrvKey, TestVector)]
 parseVector mTxt vs =
     go <$> vs
   where
-    mast = makeXPrvKey $ fromJust $ decodeHex mTxt
+    mast = makeXPrvKey btc $ fromJust $ decodeHex mTxt
     go (d : vec) =
         let deriv = getParsedPath $ fromJust $ parsePath $ cs d
          in (d, derivePath deriv mast, vec)

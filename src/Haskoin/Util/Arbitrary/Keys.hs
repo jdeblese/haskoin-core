@@ -8,10 +8,12 @@ Portability : POSIX
 -}
 module Haskoin.Util.Arbitrary.Keys where
 
+import Control.Monad (join)
 import Data.Bits (clearBit)
 import Data.Coerce (coerce)
-import Data.List (foldl')
+import Data.List (foldl', sort, nub)
 import Data.Word (Word32)
+import Haskoin.Constants (getExtSecretPrefix, allNets)
 import Haskoin.Crypto
 import Haskoin.Keys.Common
 import Haskoin.Keys.Extended
@@ -32,10 +34,13 @@ arbitraryKeyPair = do
 arbitraryFingerprint :: Gen Fingerprint
 arbitraryFingerprint = Fingerprint <$> arbitrary
 
+knownXPrvKeyVersions :: [Word32]
+knownXPrvKeyVersions = nub $ sort $ join $ map getExtSecretPrefix allNets
+
 -- | Arbitrary extended private key.
 arbitraryXPrvKey :: Gen XPrvKey
 arbitraryXPrvKey =
-    XPrvKey <$> arbitrary
+    XPrvKey <$> elements knownXPrvKeyVersions
         <*> arbitrary
         <*> arbitraryFingerprint
         <*> arbitrary

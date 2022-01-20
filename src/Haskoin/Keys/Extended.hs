@@ -267,6 +267,18 @@ instance Binary XPubKey where
     put = serialize
     get = deserialize
 
+-- | Map XPrv version to XPub version
+xPubVersionFromXPrvVersion :: Word32 -> Word32
+
+xPubVersionFromXPrvVersion 0x0488ade4 = 0x0488b21e  -- BIP-32
+xPubVersionFromXPrvVersion 0x04358394 = 0x043587cf  -- BIP-32
+
+xPubVersionFromXPrvVersion 0x049d7878 = 0x049d7cb2  -- BIP-49
+xPubVersionFromXPrvVersion 0x044a4e28 = 0x044a5262  -- BIP-49
+
+xPubVersionFromXPrvVersion 0x04b2430c = 0x04b24746  -- BIP-84
+xPubVersionFromXPrvVersion 0x045f18bc = 0x045f1cf6  -- BIP-84
+
 -- | Decode an extended public key from a JSON string
 xPubFromJSON :: Network -> Value -> Parser XPubKey
 xPubFromJSON net =
@@ -299,7 +311,7 @@ makeXPrvKey net bs =
  private keys.
 -}
 deriveXPubKey :: XPrvKey -> XPubKey
-deriveXPubKey (XPrvKey v d p i c k) = XPubKey v d p i c (derivePubKey k)
+deriveXPubKey (XPrvKey v d p i c k) = XPubKey (xPubVersionFromXPrvVersion v) d p i c (derivePubKey k)
 
 {- | Compute a private, soft child key derivation. A private soft derivation
  will allow the equivalent extended public key to derive the public key for

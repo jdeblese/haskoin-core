@@ -27,6 +27,8 @@ module Haskoin.Constants (
     bchRegTest,
     allNets,
     netByName,
+    netByXPrvKeyVersion,
+    netByXPubKeyVersion,
 ) where
 
 import Control.DeepSeq
@@ -60,6 +62,24 @@ versionString = "Unavailable"
 -- | Query known networks by name.
 netByName :: String -> Maybe Network
 netByName str = find ((== str) . getNetworkName) allNets
+
+-- | Query known networks by private key version
+netByXPrvKeyVersion :: Word32 -> Network
+netByXPrvKeyVersion 0x0488ade4 = btc  -- BIP-32
+netByXPrvKeyVersion 0x049d7878 = btc  -- BIP-49
+netByXPrvKeyVersion 0x04b2430c = btc  -- BIP-84
+netByXPrvKeyVersion 0x04358394 = btcTest  -- BIP-32
+netByXPrvKeyVersion 0x044a4e28 = btcTest  -- BIP-49
+netByXPrvKeyVersion 0x045f18bc = btcTest  -- BIP-84
+
+-- | Query known networks by public key version
+netByXPubKeyVersion :: Word32 -> Network
+netByXPubKeyVersion 0x0488b21e = btc  -- BIP-32
+netByXPubKeyVersion 0x049d7cb2 = btc  -- BIP-49
+netByXPubKeyVersion 0x04b24746 = btc  -- BIP-84
+netByXPubKeyVersion 0x043587cf = btcTest  -- BIP-32
+netByXPubKeyVersion 0x044a5262 = btcTest  -- BIP-49
+netByXPubKeyVersion 0x045f1cf6 = btcTest  -- BIP-84
 
 -- | Bitcoin SegWit network. Symbol: BTC.
 btc :: Network

@@ -173,7 +173,9 @@ type KeyIndex = Word32
  parent node and an index to differentiate it from other siblings.
 -}
 data XPrvKey = XPrvKey
-    { -- | depth in the tree
+    { -- | key version
+      xPrvVersion :: !Word32
+    , -- | depth in the tree
       xPrvDepth :: !Word8
     , -- | fingerprint of parent
       xPrvParent :: !Fingerprint
@@ -188,13 +190,15 @@ data XPrvKey = XPrvKey
 
 instance Serial XPrvKey where
     serialize k = do
+        putWord32be $ xPrvVersion k
         putWord8 $ xPrvDepth k
         serialize $ xPrvParent k
         putWord32be $ xPrvIndex k
         serialize $ xPrvChain k
         putPadPrvKey $ xPrvKey k
     deserialize =
-        XPrvKey <$> getWord8
+        XPrvKey <$> getWord32be
+            <*> getWord8
             <*> deserialize
             <*> getWord32be
             <*> deserialize
@@ -208,11 +212,11 @@ instance Serialize XPrvKey where
     put = serialize
     get = deserialize
 
-xPrvToJSON :: Network -> XPrvKey -> Value
-xPrvToJSON net = A.String . xPrvExport net
+xPrvToJSON :: XPrvKey -> Value
+xPrvToJSON = A.String . xPrvExport
 
-xPrvToEncoding :: Network -> XPrvKey -> Encoding
-xPrvToEncoding net = text . xPrvExport net
+xPrvToEncoding :: XPrvKey -> Encoding
+xPrvToEncoding = text . xPrvExport
 
 -- | Decode an extended private key from a JSON string
 xPrvFromJSON :: Network -> Value -> Parser XPrvKey
@@ -224,7 +228,9 @@ xPrvFromJSON net =
 
 -- | Data type representing an extended BIP32 public key.
 data XPubKey = XPubKey
-    { -- | depth in the tree
+    { -- | key version
+      xPubVersion :: !Word32
+    , -- | depth in the tree
       xPubDepth :: !Word8
     , -- | fingerprint of parent
       xPubParent :: !Fingerprint
@@ -239,13 +245,15 @@ data XPubKey = XPubKey
 
 instance Serial XPubKey where
     serialize k = do
+        putWord32be $ xPubVersion k
         putWord8 $ xPubDepth k
         serialize $ xPubParent k
         putWord32be $ xPubIndex k
         serialize $ xPubChain k
         serialize $ wrapPubKey True (xPubKey k)
     deserialize =
-        XPubKey <$> getWord8
+        XPubKey <$> getWord32be
+            <*> getWord8
             <*> deserialize
             <*> getWord32be
             <*> deserialize
@@ -268,18 +276,19 @@ xPubFromJSON net =
             Just x -> return x
 
 -- | Get JSON 'Value' from 'XPubKey'.
-xPubToJSON :: Network -> XPubKey -> Value
-xPubToJSON net = A.String . xPubExport net
+xPubToJSON :: XPubKey -> Value
+xPubToJSON = A.String . xPubExport
 
-xPubToEncoding :: Network -> XPubKey -> Encoding
-xPubToEncoding net = text . xPubExport net
+xPubToEncoding :: XPubKey -> Encoding
+xPubToEncoding = text . xPubExport
 
 {- | Build a BIP32 compatible extended private key from a bytestring. This will
  produce a root node (@depth=0@ and @parent=0@).
 -}
-makeXPrvKey :: ByteString -> XPrvKey
-makeXPrvKey bs =
-    XPrvKey 0 (Fingerprint 0) 0 c k
+makeXPrvKey :: Network -> ByteString -> XPrvKey
+makeXPrvKey net bs =
+    -- FIXME what's the best default version?
+    XPrvKey (head $ getExtSecretPrefix net) 0 (Fingerprint 0) 0 c k
   where
     (p, c) = split512 $ hmac512 "Bitcoin seed" bs
     k = fromMaybe err (secKey (runPutS (serialize p)))
@@ -290,7 +299,7 @@ makeXPrvKey bs =
  private keys.
 -}
 deriveXPubKey :: XPrvKey -> XPubKey
-deriveXPubKey (XPrvKey d p i c k) = XPubKey d p i c (derivePubKey k)
+deriveXPubKey (XPrvKey v d p i c k) = XPubKey v d p i c (derivePubKey k)
 
 {- | Compute a private, soft child key derivation. A private soft derivation
  will allow the equivalent extended public key to derive the public key for
@@ -311,7 +320,7 @@ prvSubKey ::
     XPrvKey
 prvSubKey xkey child
     | child >= 0 && child < 0x80000000 =
-        XPrvKey (xPrvDepth xkey + 1) (xPrvFP xkey) child c k
+        XPrvKey (xPrvVersion xkey) (xPrvDepth xkey + 1) (xPrvFP xkey) child c k
     | otherwise = error "Invalid child derivation index"
   where
     pK = xPubKey $ deriveXPubKey xkey
@@ -332,7 +341,7 @@ pubSubKey ::
     XPubKey
 pubSubKey xKey child
     | child >= 0 && child < 0x80000000 =
-        XPubKey (xPubDepth xKey + 1) (xPubFP xKey) child c pK
+        XPubKey (xPubVersion xKey) (xPubDepth xKey + 1) (xPubFP xKey) child c pK
     | otherwise = error "Invalid child derivation index"
   where
     m = B.append (exportPubKey True (xPubKey xKey)) (runPutS $ serialize child)
@@ -356,7 +365,7 @@ hardSubKey ::
     XPrvKey
 hardSubKey xkey child
     | child >= 0 && child < 0x80000000 =
-        XPrvKey (xPrvDepth xkey + 1) (xPrvFP xkey) i c k
+        XPrvKey (xPrvVersion xkey) (xPrvDepth xkey + 1) (xPrvFP xkey) i c k
     | otherwise = error "Invalid child derivation index"
   where
     i = setBit child 31
@@ -427,12 +436,12 @@ xPubCompatWitnessAddr xkey =
     pubKeyCompatWitnessAddr (wrapPubKey True (xPubKey xkey))
 
 -- | Exports an extended private key to the BIP32 key export format ('Base58').
-xPrvExport :: Network -> XPrvKey -> Base58
-xPrvExport net = encodeBase58Check . runPutS . putXPrvKey net
+xPrvExport :: XPrvKey -> Base58
+xPrvExport = encodeBase58Check . runPutS . putXPrvKey
 
 -- | Exports an extended public key to the BIP32 key export format ('Base58').
-xPubExport :: Network -> XPubKey -> Base58
-xPubExport net = encodeBase58Check . runPutS . putXPubKey net
+xPubExport :: XPubKey -> Base58
+xPubExport = encodeBase58Check . runPutS . putXPubKey
 
 {- | Decodes a BIP32 encoded extended private key. This function will fail if
  invalid base 58 characters are detected or if the checksum fails.
@@ -453,34 +462,28 @@ xPrvWif net xkey = toWif net (wrapSecKey True (xPrvKey xkey))
 -- | Parse a binary extended private key.
 getXPrvKey :: MonadGet m => Network -> m XPrvKey
 getXPrvKey net = do
-    ver <- getWord32be
-    unless (elem ver $ getExtSecretPrefix net) $
+    key <- deserialize
+    unless (elem (xPrvVersion key) $ getExtSecretPrefix net) $
         fail
             "Get: Invalid version for extended private key"
-    deserialize
+    return key
 
 -- | Serialize an extended private key.
-putXPrvKey :: MonadPut m => Network -> XPrvKey -> m ()
-putXPrvKey net k = do
-    -- FIXME select the prefix based on properties of the key
-    putWord32be $ head $ getExtSecretPrefix net
-    serialize k
+putXPrvKey :: MonadPut m => XPrvKey -> m ()
+putXPrvKey = serialize
 
 -- | Parse a binary extended public key.
 getXPubKey :: MonadGet m => Network -> m XPubKey
 getXPubKey net = do
-    ver <- getWord32be
-    unless (elem ver $ getExtPubKeyPrefix net) $
+    key <- deserialize
+    unless (elem (xPubVersion key) $ getExtPubKeyPrefix net) $
         fail
             "Get: Invalid version for extended public key"
-    deserialize
+    return key
 
 -- | Serialize an extended public key.
-putXPubKey :: MonadPut m => Network -> XPubKey -> m ()
-putXPubKey net k = do
-    -- FIXME select the prefix based on properties of the key
-    putWord32be $ head $ getExtPubKeyPrefix net
-    serialize k
+putXPubKey :: MonadPut m => XPubKey -> m ()
+putXPubKey = serialize
 
 {- Derivation helpers -}
 
@@ -503,6 +506,7 @@ hardSubKeys :: XPrvKey -> KeyIndex -> [(XPrvKey, KeyIndex)]
 hardSubKeys k = map (\i -> (hardSubKey k i, i)) . cycleIndex
 
 -- | Derive a standard address from an extended public key and an index.
+-- | FIXME this should check the xPubVersion to see if BIP-32/49/84 is respected
 deriveAddr :: XPubKey -> KeyIndex -> (Address, PubKey)
 deriveAddr k i =
     (xPubAddr key, xPubKey key)
@@ -510,6 +514,7 @@ deriveAddr k i =
     key = pubSubKey k i
 
 -- | Derive a SegWit P2WPKH address from an extended public key and an index.
+-- | FIXME this should check the xPubVersion to see if BIP-32/49/84 is respected
 deriveWitnessAddr :: XPubKey -> KeyIndex -> (Address, PubKey)
 deriveWitnessAddr k i =
     (xPubWitnessAddr key, xPubKey key)
@@ -518,6 +523,7 @@ deriveWitnessAddr k i =
 
 {- | Derive a backwards-compatible SegWit P2SH-P2WPKH address from an extended
  public key and an index.
+-- | FIXME this should check the xPubVersion to see if BIP-32/49/84 is respected
 -}
 deriveCompatWitnessAddr :: XPubKey -> KeyIndex -> (Address, PubKey)
 deriveCompatWitnessAddr k i =
@@ -527,6 +533,7 @@ deriveCompatWitnessAddr k i =
 
 {- | Cyclic list of all addresses derived from a public key starting from an
  offset index.
+-- | FIXME this should check the xPubVersion to see if BIP-32/49/84 is respected
 -}
 deriveAddrs :: XPubKey -> KeyIndex -> [(Address, PubKey, KeyIndex)]
 deriveAddrs k =
@@ -536,6 +543,7 @@ deriveAddrs k =
 
 {- | Cyclic list of all SegWit P2WPKH addresses derived from a public key
  starting from an offset index.
+-- | FIXME this should check the xPubVersion to see if BIP-32/49/84 is respected
 -}
 deriveWitnessAddrs :: XPubKey -> KeyIndex -> [(Address, PubKey, KeyIndex)]
 deriveWitnessAddrs k =
@@ -545,6 +553,7 @@ deriveWitnessAddrs k =
 
 {- | Cyclic list of all backwards-compatible SegWit P2SH-P2WPKH addresses
  derived from a public key starting from an offset index.
+-- | FIXME this should check the xPubVersion to see if BIP-32/49/84 is respected
 -}
 deriveCompatWitnessAddrs :: XPubKey -> KeyIndex -> [(Address, PubKey, KeyIndex)]
 deriveCompatWitnessAddrs k =

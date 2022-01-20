@@ -36,6 +36,7 @@ arbitraryFingerprint = Fingerprint <$> arbitrary
 arbitraryXPrvKey :: Gen XPrvKey
 arbitraryXPrvKey =
     XPrvKey <$> arbitrary
+        <*> arbitrary
         <*> arbitraryFingerprint
         <*> arbitrary
         <*> arbitraryHash256

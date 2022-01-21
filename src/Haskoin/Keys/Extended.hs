@@ -132,6 +132,8 @@ import Data.Hashable
 import Data.List (foldl')
 import Data.List.Split (splitOn)
 import Data.Maybe (fromMaybe)
+import Data.Map (Map)
+import qualified Data.Map as Map
 import Data.Serialize (Serialize (..))
 import qualified Data.Serialize as S
 import Data.String (IsString, fromString)
@@ -219,10 +221,10 @@ xPrvToEncoding :: XPrvKey -> Encoding
 xPrvToEncoding = text . xPrvExport
 
 -- | Decode an extended private key from a JSON string
-xPrvFromJSON :: Network -> Value -> Parser XPrvKey
-xPrvFromJSON net =
+xPrvFromJSON :: Value -> Parser XPrvKey
+xPrvFromJSON =
     withText "xprv" $ \t ->
-        case xPrvImport net t of
+        case xPrvImport t of
             Nothing -> fail "could not read xprv"
             Just x -> return x
 
@@ -267,23 +269,11 @@ instance Binary XPubKey where
     put = serialize
     get = deserialize
 
--- | Map XPrv version to XPub version
-xPubVersionFromXPrvVersion :: Word32 -> Word32
-
-xPubVersionFromXPrvVersion 0x0488ade4 = 0x0488b21e  -- BIP-32
-xPubVersionFromXPrvVersion 0x04358394 = 0x043587cf  -- BIP-32
-
-xPubVersionFromXPrvVersion 0x049d7878 = 0x049d7cb2  -- BIP-49
-xPubVersionFromXPrvVersion 0x044a4e28 = 0x044a5262  -- BIP-49
-
-xPubVersionFromXPrvVersion 0x04b2430c = 0x04b24746  -- BIP-84
-xPubVersionFromXPrvVersion 0x045f18bc = 0x045f1cf6  -- BIP-84
-
 -- | Decode an extended public key from a JSON string
-xPubFromJSON :: Network -> Value -> Parser XPubKey
-xPubFromJSON net =
+xPubFromJSON :: Value -> Parser XPubKey
+xPubFromJSON =
     withText "xpub" $ \t ->
-        case xPubImport net t of
+        case xPubImport t of
             Nothing -> fail "could not read xpub"
             Just x -> return x
 
@@ -297,14 +287,23 @@ xPubToEncoding = text . xPubExport
 {- | Build a BIP32 compatible extended private key from a bytestring. This will
  produce a root node (@depth=0@ and @parent=0@).
 -}
-makeXPrvKey :: Network -> ByteString -> XPrvKey
-makeXPrvKey net bs =
+makeXPrvKey :: Network -> KeySerializationFormat -> ByteString -> Maybe XPrvKey
+makeXPrvKey net fmt bs =
     -- FIXME what's the best default version?
-    XPrvKey (head $ getExtSecretPrefix net) 0 (Fingerprint 0) 0 c k
+    (\v -> XPrvKey v 0 (Fingerprint 0) 0 c k) <$> (Map.lookup fmt $ getExtSecretPrefix net)
   where
     (p, c) = split512 $ hmac512 "Bitcoin seed" bs
     k = fromMaybe err (secKey (runPutS (serialize p)))
     err = throw $ DerivationException "Invalid seed"
+
+-- | Map XPrv version to XPub version
+xPubVersionFromXPrvVersion :: Word32 -> Word32
+xPubVersionFromXPrvVersion 0x0488ade4 = 0x0488b21e  -- BIP-32
+xPubVersionFromXPrvVersion 0x04358394 = 0x043587cf  -- BIP-32
+xPubVersionFromXPrvVersion 0x049d7878 = 0x049d7cb2  -- BIP-49
+xPubVersionFromXPrvVersion 0x044a4e28 = 0x044a5262  -- BIP-49
+xPubVersionFromXPrvVersion 0x04b2430c = 0x04b24746  -- BIP-84
+xPubVersionFromXPrvVersion 0x045f18bc = 0x045f1cf6  -- BIP-84
 
 {- | Derive an extended public key from an extended private key. This function
  will preserve the depth, parent, index and chaincode fields of the extended
@@ -458,40 +457,36 @@ xPubExport = encodeBase58Check . runPutS . putXPubKey
 {- | Decodes a BIP32 encoded extended private key. This function will fail if
  invalid base 58 characters are detected or if the checksum fails.
 -}
-xPrvImport :: Network -> Base58 -> Maybe XPrvKey
-xPrvImport net = eitherToMaybe . runGetS (getXPrvKey net) <=< decodeBase58Check
+xPrvImport :: Base58 -> Maybe XPrvKey
+xPrvImport = eitherToMaybe . runGetS getXPrvKey <=< decodeBase58Check
 
 {- | Decodes a BIP32 encoded extended public key. This function will fail if
  invalid base 58 characters are detected or if the checksum fails.
 -}
-xPubImport :: Network -> Base58 -> Maybe XPubKey
-xPubImport net = eitherToMaybe . runGetS (getXPubKey net) <=< decodeBase58Check
+xPubImport :: Base58 -> Maybe XPubKey
+xPubImport = eitherToMaybe . runGetS getXPubKey <=< decodeBase58Check
 
 -- | Export an extended private key to WIF (Wallet Import Format).
 xPrvWif :: Network -> XPrvKey -> Base58
 xPrvWif net xkey = toWif net (wrapSecKey True (xPrvKey xkey))
 
+isXPrvValidOnNetwork :: XPrvKey -> Network -> Bool
+isXPrvValidOnNetwork key net = elem (xPrvVersion key) $ getExtSecretPrefix net
+
 -- | Parse a binary extended private key.
-getXPrvKey :: MonadGet m => Network -> m XPrvKey
-getXPrvKey net = do
-    key <- deserialize
-    unless (elem (xPrvVersion key) $ getExtSecretPrefix net) $
-        fail
-            "Get: Invalid version for extended private key"
-    return key
+getXPrvKey :: MonadGet m => m XPrvKey
+getXPrvKey = deserialize
 
 -- | Serialize an extended private key.
 putXPrvKey :: MonadPut m => XPrvKey -> m ()
 putXPrvKey = serialize
 
+isXPubValidOnNetwork :: XPubKey -> Network -> Bool
+isXPubValidOnNetwork key net = elem (xPubVersion key) $ getExtPubKeyPrefix net
+
 -- | Parse a binary extended public key.
-getXPubKey :: MonadGet m => Network -> m XPubKey
-getXPubKey net = do
-    key <- deserialize
-    unless (elem (xPubVersion key) $ getExtPubKeyPrefix net) $
-        fail
-            "Get: Invalid version for extended public key"
-    return key
+getXPubKey :: MonadGet m => m XPubKey
+getXPubKey = deserialize
 
 -- | Serialize an extended public key.
 putXPubKey :: MonadPut m => XPubKey -> m ()

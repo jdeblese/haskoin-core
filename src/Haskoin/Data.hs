@@ -3,6 +3,7 @@
 
 module Haskoin.Data (
     Network (..),
+    KeySerializationFormat (..),
 ) where
 
 import Control.DeepSeq
@@ -12,6 +13,7 @@ import Data.Bytes.Get
 import Data.Bytes.Put
 import Data.Bytes.Serial
 import Data.List
+import Data.Map (Map)
 import Data.Serialize (Serialize (..))
 import Data.String
 import Data.Text (Text)
@@ -19,6 +21,8 @@ import Data.Word (Word32, Word64, Word8)
 import GHC.Generics (Generic)
 import Haskoin.Block.Common
 import Text.Read
+
+data KeySerializationFormat = BIP32 | BIP49 | BIP84 deriving (Eq, Show, Ord, Read, Generic, NFData)
 
 -- | Network definition.
 data Network = Network
@@ -31,9 +35,9 @@ data Network = Network
     , -- | prefix for WIF private key
       getSecretPrefix :: !Word8
     , -- | prefix for extended public key
-      getExtPubKeyPrefix :: ![Word32]
+      getExtPubKeyPrefix :: !(Map KeySerializationFormat Word32)
     , -- | prefix for extended private key
-      getExtSecretPrefix :: ![Word32]
+      getExtSecretPrefix :: !(Map KeySerializationFormat Word32)
     , -- | network magic
       getNetworkMagic :: !Word32
     , -- | genesis block header

@@ -283,7 +283,7 @@ psbtSignerTest = do
     Just theSecKey = secKey "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
     thePubKey = PubKeyI{pubKeyPoint = derivePubKey theSecKey, pubKeyCompressed = True}
 
-    rootXPrv = makeXPrvKey btc "psbtSignerTest"
+    rootXPrv = fromJust $ makeXPrvKey btc BIP32 "psbtSignerTest"
     rootFP = xPubFP $ deriveXPubKey rootXPrv
     xprv = derivePath keyPath rootXPrv
     keyFP = xPubFP $ deriveXPubKey xprv

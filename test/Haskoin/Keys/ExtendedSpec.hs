@@ -18,6 +18,7 @@ import Data.Text (Text)
 import Data.Word (Word32)
 import Haskoin.Address
 import Haskoin.Constants
+import Haskoin.Data
 import Haskoin.Keys
 import Haskoin.Util
 import Haskoin.Util.Arbitrary
@@ -61,22 +62,14 @@ spec :: Spec
 spec = do
     testIdentity serialVals readVals jsonVals netVals
     describe "Custom identity tests" $ do
-        testImplicitNetJson xPrvToJSON xPrvToEncoding (netByXPrvKeyVersion . xPrvVersion) (\key net -> elem (xPrvVersion key) (getExtSecretPrefix net)) xPrvFromJSON arbitraryXPrvKey
-        testImplicitNetJson xPubToJSON xPubToEncoding (netByXPubKeyVersion . xPubVersion) (\key net -> elem (xPubVersion key) (getExtPubKeyPrefix net)) xPubFromJSON (snd <$> arbitraryXPubKey)
+        testExtended xPrvToJSON xPrvToEncoding xPrvFromJSON arbitraryXPrvKey
+        testExtended xPubToJSON xPubToEncoding xPubFromJSON (snd <$> arbitraryXPubKey)
         prop "encodes and decodes extended private key" $
             forAll arbitraryXPrvKey $ \key ->
-                customCerealID (getXPrvKey $ netByXPrvKeyVersion $ xPrvVersion key) putXPrvKey key
-        prop "decoding extended private key succeeeds only with correct network" $
-            forAll arbitraryNetwork $ \net ->
-                forAll arbitraryXPrvKey $ \key ->
-                    customCerealID (getXPrvKey net) putXPrvKey key `shouldBe` (elem (xPrvVersion key) $ getExtSecretPrefix net)
+                customCerealID getXPrvKey putXPrvKey key
         prop "encodes and decodes extended public key" $
             forAll arbitraryXPubKey $ \key ->
-                customCerealID (getXPubKey $ netByXPubKeyVersion $ xPubVersion $ snd key) putXPubKey (snd key)
-        prop "decoding extended public key succeeeds only with correct network" $
-            forAll arbitraryNetwork $ \net ->
-                forAll arbitraryXPubKey $ \(_, key) ->
-                    customCerealID (getXPubKey net) putXPubKey key `shouldBe` (elem (xPubVersion key) $ getExtPubKeyPrefix net)
+                customCerealID getXPubKey putXPubKey (snd key)
     describe "bip32 subkey derivation vector 1" $ vectorSpec m1 vector1
     describe "bip32 subkey derivation vector 2" $ vectorSpec m2 vector2
     describe "bip32 subkey derivation vector 3" $ vectorSpec m3 vector3
@@ -108,10 +101,10 @@ spec = do
             forAll arbitraryXPrvKey pubKeyOfSubKeyIsSubKeyOfPubKey
         prop "exports and imports extended private key" $
             forAll arbitraryXPrvKey $ \k ->
-                xPrvImport (netByXPrvKeyVersion $ xPrvVersion k) (xPrvExport k) == Just k
+                xPrvImport (xPrvExport k) == Just k
         prop "exports and imports extended public key" $
             forAll arbitraryXPubKey $ \(_, k) ->
-                xPubImport (netByXPubKeyVersion $ xPubVersion k) (xPubExport k) == Just k
+                xPubImport (xPubExport k) == Just k
 
 pubKeyOfSubKeyIsSubKeyOfPubKey :: XPrvKey -> Word32 -> Bool
 pubKeyOfSubKeyIsSubKeyOfPubKey k i =
@@ -221,7 +214,6 @@ derivePubPathVectors =
     xprv =
         fromJust $
             xPrvImport
-                btc
                 "xprv9s21ZrQH143K46iDVRSyFfGfMgQjzC4BV3ZUfNbG7PHQrJjE53ofAn5gYkp6KQ\
                 \WzGmb8oageSRxBY8s4rjr9VXPVp2HQDbwPt4H31Gg4LpB"
     xpub = deriveXPubKey xprv
@@ -257,7 +249,6 @@ derivePrvPathVectors =
     xprv =
         fromJust $
             xPrvImport
-                btc
                 "xprv9s21ZrQH143K46iDVRSyFfGfMgQjzC4BV3ZUfNbG7PHQrJjE53ofAn5gYkp6KQ\
                 \WzGmb8oageSRxBY8s4rjr9VXPVp2HQDbwPt4H31Gg4LpB"
 
@@ -301,7 +292,6 @@ applyPathVectors =
     xprv =
         fromJust $
             xPrvImport
-                btc
                 "xprv9s21ZrQH143K46iDVRSyFfGfMgQjzC4BV3ZUfNbG7PHQrJjE53ofAn5gYkp6KQ\
                 \WzGmb8oageSRxBY8s4rjr9VXPVp2HQDbwPt4H31Gg4LpB"
     xpub = deriveXPubKey xprv
@@ -316,7 +306,6 @@ badApplyPathVectors =
     xprv =
         fromJust $
             xPrvImport
-                btc
                 "xprv9s21ZrQH143K46iDVRSyFfGfMgQjzC4BV3ZUfNbG7PHQrJjE53ofAn5gYkp6KQ\
                 \WzGmb8oageSRxBY8s4rjr9VXPVp2HQDbwPt4H31Gg4LpB"
     xpub = deriveXPubKey xprv
@@ -375,7 +364,7 @@ parseVector :: TestKey -> [TestVector] -> [(Text, XPrvKey, TestVector)]
 parseVector mTxt vs =
     go <$> vs
   where
-    mast = makeXPrvKey btc $ fromJust $ decodeHex mTxt
+    mast = fromJust $ makeXPrvKey btc BIP32 $ fromJust $ decodeHex mTxt
     go (d : vec) =
         let deriv = getParsedPath $ fromJust $ parsePath $ cs d
          in (d, derivePath deriv mast, vec)

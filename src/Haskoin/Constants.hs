@@ -27,8 +27,6 @@ module Haskoin.Constants (
     bchRegTest,
     allNets,
     netByName,
-    netByXPrvKeyVersion,
-    netByXPubKeyVersion,
 ) where
 
 import Control.DeepSeq
@@ -38,6 +36,8 @@ import Data.Bytes.Get
 import Data.Bytes.Put
 import Data.Bytes.Serial
 import Data.List
+import Data.Map (Map)
+import qualified Data.Map as Map
 import Data.Maybe
 import Data.Serialize (Serialize (..))
 import Data.String
@@ -63,24 +63,6 @@ versionString = "Unavailable"
 netByName :: String -> Maybe Network
 netByName str = find ((== str) . getNetworkName) allNets
 
--- | Query known networks by private key version
-netByXPrvKeyVersion :: Word32 -> Network
-netByXPrvKeyVersion 0x0488ade4 = btc  -- BIP-32
-netByXPrvKeyVersion 0x049d7878 = btc  -- BIP-49
-netByXPrvKeyVersion 0x04b2430c = btc  -- BIP-84
-netByXPrvKeyVersion 0x04358394 = btcTest  -- BIP-32
-netByXPrvKeyVersion 0x044a4e28 = btcTest  -- BIP-49
-netByXPrvKeyVersion 0x045f18bc = btcTest  -- BIP-84
-
--- | Query known networks by public key version
-netByXPubKeyVersion :: Word32 -> Network
-netByXPubKeyVersion 0x0488b21e = btc  -- BIP-32
-netByXPubKeyVersion 0x049d7cb2 = btc  -- BIP-49
-netByXPubKeyVersion 0x04b24746 = btc  -- BIP-84
-netByXPubKeyVersion 0x043587cf = btcTest  -- BIP-32
-netByXPubKeyVersion 0x044a5262 = btcTest  -- BIP-49
-netByXPubKeyVersion 0x045f1cf6 = btcTest  -- BIP-84
-
 -- | Bitcoin SegWit network. Symbol: BTC.
 btc :: Network
 btc =
@@ -89,8 +71,8 @@ btc =
         , getAddrPrefix = 0
         , getScriptPrefix = 5
         , getSecretPrefix = 128
-        , getExtPubKeyPrefix = [0x0488b21e, 0x049d7cb2, 0x04b24746]
-        , getExtSecretPrefix = [0x0488ade4, 0x049d7878, 0x04b2430c]
+        , getExtPubKeyPrefix = Map.fromList [(BIP32, 0x0488b21e), (BIP49, 0x049d7cb2), (BIP84, 0x04b24746)]
+        , getExtSecretPrefix = Map.fromList [(BIP32, 0x0488ade4), (BIP49, 0x049d7878), (BIP84, 0x04b2430c)]
         , getNetworkMagic = 0xf9beb4d9
         , getGenesisHeader =
             BlockHeader
@@ -204,8 +186,8 @@ btcTest =
         , getAddrPrefix = 111
         , getScriptPrefix = 196
         , getSecretPrefix = 239
-        , getExtPubKeyPrefix = [0x043587cf, 0x044a5262, 0x045f1cf6]
-        , getExtSecretPrefix = [0x04358394, 0x044a4e28, 0x045f18bc]
+        , getExtPubKeyPrefix = Map.fromList [(BIP32, 0x043587cf), (BIP49, 0x044a5262), (BIP84, 0x045f1cf6)]
+        , getExtSecretPrefix = Map.fromList [(BIP32, 0x04358394), (BIP49, 0x044a4e28), (BIP84, 0x045f18bc)]
         , getNetworkMagic = 0x0b110907
         , getGenesisHeader =
             BlockHeader
@@ -265,8 +247,8 @@ btcRegTest =
         , getAddrPrefix = 111
         , getScriptPrefix = 196
         , getSecretPrefix = 239
-        , getExtPubKeyPrefix = [0x043587cf]
-        , getExtSecretPrefix = [0x04358394]
+        , getExtPubKeyPrefix = Map.fromList [(BIP32, 0x043587cf)]
+        , getExtSecretPrefix = Map.fromList [(BIP32, 0x04358394)]
         , getNetworkMagic = 0xfabfb5da
         , getGenesisHeader =
             BlockHeader
@@ -316,8 +298,8 @@ bch =
         , getAddrPrefix = 0
         , getScriptPrefix = 5
         , getSecretPrefix = 128
-        , getExtPubKeyPrefix = [0x0488b21e]
-        , getExtSecretPrefix = [0x0488ade4]
+        , getExtPubKeyPrefix = Map.fromList [(BIP32, 0x0488b21e)]
+        , getExtSecretPrefix = Map.fromList [(BIP32, 0x0488ade4)]
         , getNetworkMagic = 0xe3e1f3e8
         , getGenesisHeader =
             BlockHeader
@@ -437,8 +419,8 @@ bchTest4 =
         , getAddrPrefix = 111
         , getScriptPrefix = 196
         , getSecretPrefix = 239
-        , getExtPubKeyPrefix = [0x043587cf]
-        , getExtSecretPrefix = [0x04358394]
+        , getExtPubKeyPrefix = Map.fromList [(BIP32, 0x043587cf)]
+        , getExtSecretPrefix = Map.fromList [(BIP32, 0x04358394)]
         , getNetworkMagic = 0xe2b7daaf
         , getGenesisHeader =
             BlockHeader
@@ -511,8 +493,8 @@ bchTest =
         , getAddrPrefix = 111
         , getScriptPrefix = 196
         , getSecretPrefix = 239
-        , getExtPubKeyPrefix = [0x043587cf]
-        , getExtSecretPrefix = [0x04358394]
+        , getExtPubKeyPrefix = Map.fromList [(BIP32, 0x043587cf)]
+        , getExtSecretPrefix = Map.fromList [(BIP32, 0x04358394)]
         , getNetworkMagic = 0xf4e5f3f4
         , getGenesisHeader =
             BlockHeader
@@ -582,8 +564,8 @@ bchRegTest =
         , getAddrPrefix = 111
         , getScriptPrefix = 196
         , getSecretPrefix = 239
-        , getExtPubKeyPrefix = [0x043587cf]
-        , getExtSecretPrefix = [0x04358394]
+        , getExtPubKeyPrefix = Map.fromList [(BIP32, 0x043587cf)]
+        , getExtSecretPrefix = Map.fromList [(BIP32, 0x04358394)]
         , getNetworkMagic = 0xdab5bffa
         , getGenesisHeader =
             BlockHeader

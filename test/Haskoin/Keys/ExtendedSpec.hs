@@ -15,6 +15,7 @@ import Data.Maybe (fromJust, isJust, isNothing)
 import Data.String (fromString)
 import Data.String.Conversions (cs)
 import Data.Text (Text)
+import qualified Data.Text as T (take, cons)
 import Data.Word (Word32)
 import Haskoin.Address
 import Haskoin.Constants
@@ -105,6 +106,18 @@ spec = do
         prop "exports and imports extended public key" $
             forAll arbitraryXPubKey $ \(_, k) ->
                 xPubImport (xPubExport k) == Just k
+        describe "Network Prefixes" $ do
+            mapM_ migratedKeyPrefixIsCorrect [(btc, BIP32, 'x'), (btc, BIP49, 'y'), (btc, BIP84, 'z'),
+                                              (btcTest, BIP32, 't'), (btcTest, BIP49, 'u'), (btcTest, BIP84, 'v')]
+
+migratedKeyPrefixIsCorrect :: (Network, KeySerializationFormat, Char) -> Spec
+migratedKeyPrefixIsCorrect (net, fmt, c) = do
+    prop (show fmt ++ " base58-encoded private keys on " ++ getNetworkName net ++ " start with " ++ [c] ++ "prv") $
+        forAll arbitraryXPrvKey $ \k ->
+            (T.take 4 $ xPrvExport $ fromJust $ migrateXPrvKey k net fmt) `shouldBe` T.cons c "prv"
+    prop (show fmt ++ " base58-encoded public keys on " ++ getNetworkName net ++ " start with " ++ [c] ++ "pub") $
+        forAll arbitraryXPubKey $ \(_, k) ->
+            (T.take 4 $ xPubExport $ fromJust $ migrateXPubKey k net fmt) `shouldBe` T.cons c "pub"
 
 pubKeyOfSubKeyIsSubKeyOfPubKey :: XPrvKey -> Word32 -> Bool
 pubKeyOfSubKeyIsSubKeyOfPubKey k i =

@@ -51,6 +51,8 @@ module Haskoin.Keys.Extended (
     xPubImport,
     xPrvImport,
     xPrvWif,
+    migrateXPrvKey,
+    migrateXPubKey,
 
     -- ** Helper Functions
     prvSubKeys,
@@ -1080,3 +1082,15 @@ putPadPrvKey p = putWord8 0x00 >> putByteString (runPutS (S.put p))
 
 bsPadPrvKey :: SecKey -> ByteString
 bsPadPrvKey = runPutS . putPadPrvKey
+
+migrateXPrvKey :: XPrvKey -> Network -> KeySerializationFormat -> Maybe XPrvKey
+migrateXPrvKey (XPrvKey _ d p i c k) net fmt =
+    f <$> Map.lookup fmt (getExtSecretPrefix net)
+    where
+        f v = XPrvKey v d p i c k
+
+migrateXPubKey :: XPubKey -> Network -> KeySerializationFormat -> Maybe XPubKey
+migrateXPubKey (XPubKey _ d p i c k) net fmt =
+    f <$> Map.lookup fmt (getExtPubKeyPrefix net)
+    where
+        f v = XPubKey v d p i c k

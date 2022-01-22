@@ -5,6 +5,7 @@ module Haskoin.NetworkSpec (spec) where
 import Data.Bytes.Get
 import Data.Bytes.Put
 import Data.Bytes.Serial
+import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Text (Text)
 import Data.Word (Word32)
@@ -61,6 +62,11 @@ spec = do
     describe "relevant bloom filter update" $ do
         it "Relevant Update" relevantOutputUpdated
         it "Irrelevant Update" irrelevantOutputNotUpdated
+    prop "available prv and pub serialization formats match for all networks" $
+        mapM_ checkForMatchedFormats allNets
+
+checkForMatchedFormats :: Network -> Expectation
+checkForMatchedFormats net = (Map.keys $ getExtSecretPrefix net) \\ (Map.keys $ getExtPubKeyPrefix net) `shouldBe` []
 
 bloomFilter :: Word32 -> Text -> Assertion
 bloomFilter n x = do

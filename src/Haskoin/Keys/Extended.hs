@@ -51,10 +51,6 @@ module Haskoin.Keys.Extended (
     xPubImport,
     xPrvImport,
     xPrvWif,
-    putXPrvKey,
-    putXPubKey,
-    getXPrvKey,
-    getXPubKey,
 
     -- ** Helper Functions
     prvSubKeys,
@@ -448,23 +444,23 @@ xPubCompatWitnessAddr xkey =
 
 -- | Exports an extended private key to the BIP32 key export format ('Base58').
 xPrvExport :: XPrvKey -> Base58
-xPrvExport = encodeBase58Check . runPutS . putXPrvKey
+xPrvExport = encodeBase58Check . runPutS . serialize
 
 -- | Exports an extended public key to the BIP32 key export format ('Base58').
 xPubExport :: XPubKey -> Base58
-xPubExport = encodeBase58Check . runPutS . putXPubKey
+xPubExport = encodeBase58Check . runPutS . serialize
 
 {- | Decodes a BIP32 encoded extended private key. This function will fail if
  invalid base 58 characters are detected or if the checksum fails.
 -}
 xPrvImport :: Base58 -> Maybe XPrvKey
-xPrvImport = eitherToMaybe . runGetS getXPrvKey <=< decodeBase58Check
+xPrvImport = eitherToMaybe . runGetS deserialize <=< decodeBase58Check
 
 {- | Decodes a BIP32 encoded extended public key. This function will fail if
  invalid base 58 characters are detected or if the checksum fails.
 -}
 xPubImport :: Base58 -> Maybe XPubKey
-xPubImport = eitherToMaybe . runGetS getXPubKey <=< decodeBase58Check
+xPubImport = eitherToMaybe . runGetS deserialize <=< decodeBase58Check
 
 -- | Export an extended private key to WIF (Wallet Import Format).
 xPrvWif :: Network -> XPrvKey -> Base58
@@ -473,24 +469,8 @@ xPrvWif net xkey = toWif net (wrapSecKey True (xPrvKey xkey))
 isXPrvValidOnNetwork :: XPrvKey -> Network -> Bool
 isXPrvValidOnNetwork key net = elem (xPrvVersion key) $ getExtSecretPrefix net
 
--- | Parse a binary extended private key.
-getXPrvKey :: MonadGet m => m XPrvKey
-getXPrvKey = deserialize
-
--- | Serialize an extended private key.
-putXPrvKey :: MonadPut m => XPrvKey -> m ()
-putXPrvKey = serialize
-
 isXPubValidOnNetwork :: XPubKey -> Network -> Bool
 isXPubValidOnNetwork key net = elem (xPubVersion key) $ getExtPubKeyPrefix net
-
--- | Parse a binary extended public key.
-getXPubKey :: MonadGet m => m XPubKey
-getXPubKey = deserialize
-
--- | Serialize an extended public key.
-putXPubKey :: MonadPut m => XPubKey -> m ()
-putXPubKey = serialize
 
 {- Derivation helpers -}
 

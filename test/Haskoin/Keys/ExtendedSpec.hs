@@ -66,10 +66,10 @@ spec = do
         testExtended xPubToJSON xPubToEncoding xPubFromJSON (snd <$> arbitraryXPubKey)
         prop "encodes and decodes extended private key" $
             forAll arbitraryXPrvKey $ \key ->
-                customCerealID getXPrvKey putXPrvKey key
+                customCerealID deserialize serialize key
         prop "encodes and decodes extended public key" $
             forAll arbitraryXPubKey $ \key ->
-                customCerealID getXPubKey putXPubKey (snd key)
+                customCerealID deserialize serialize (snd key)
     describe "bip32 subkey derivation vector 1" $ vectorSpec m1 vector1
     describe "bip32 subkey derivation vector 2" $ vectorSpec m2 vector2
     describe "bip32 subkey derivation vector 3" $ vectorSpec m3 vector3
@@ -336,8 +336,8 @@ runVector m v = do
         encodeHex (exportPubKey True $ xPubKey $ deriveXPubKey m) == v !! 6
     assertBool "chain code" $ encodeHex (runPutS . serialize $ xPrvChain m) == v !! 7
     assertBool "Hex PubKey" $
-        encodeHex (runPutS $ putXPubKey $ deriveXPubKey m) == v !! 8
-    assertBool "Hex PrvKey" $ encodeHex (runPutS (putXPrvKey m)) == v !! 9
+        encodeHex (runPutS $ serialize $ deriveXPubKey m) == v !! 8
+    assertBool "Hex PrvKey" $ encodeHex (runPutS (serialize m)) == v !! 9
     assertBool "Base58 PubKey" $ xPubExport (deriveXPubKey m) == v !! 10
     assertBool "Base58 PrvKey" $ xPrvExport m == v !! 11
 
@@ -356,8 +356,8 @@ genVector m =
     , ("xPrvWIF", xPrvWif btc m)
     , ("pubKey", encodeHex (exportPubKey True $ xPubKey $ deriveXPubKey m))
     , ("chain code", encodeHex (runPutS . serialize $ xPrvChain m))
-    , ("Hex PubKey", encodeHex (runPutS $ putXPubKey $ deriveXPubKey m))
-    , ("Hex PrvKey", encodeHex (runPutS (putXPrvKey m)))
+    , ("Hex PubKey", encodeHex (runPutS $ serialize $ deriveXPubKey m))
+    , ("Hex PrvKey", encodeHex (runPutS (serialize m)))
     ]
 
 parseVector :: TestKey -> [TestVector] -> [(Text, XPrvKey, TestVector)]

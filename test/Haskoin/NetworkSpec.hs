@@ -5,6 +5,7 @@ module Haskoin.NetworkSpec (spec) where
 import Data.Bytes.Get
 import Data.Bytes.Put
 import Data.Bytes.Serial
+import Data.List ((\\))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Text (Text)

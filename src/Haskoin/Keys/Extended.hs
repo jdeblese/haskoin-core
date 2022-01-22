@@ -51,6 +51,8 @@ module Haskoin.Keys.Extended (
     xPubImport,
     xPrvImport,
     xPrvWif,
+    isXPrvValidOnNetwork,
+    isXPubValidOnNetwork,
     migrateXPrvKey,
     migrateXPubKey,
 

@@ -11,6 +11,7 @@ import Data.Bytes.Get
 import Data.Bytes.Put
 import Data.Bytes.Serial
 import Data.Either (isLeft)
+import qualified Data.Map as Map
 import Data.Maybe (fromJust, isJust, isNothing)
 import Data.String (fromString)
 import Data.String.Conversions (cs)
@@ -109,6 +110,16 @@ spec = do
         describe "Network Prefixes" $ do
             mapM_ migratedKeyPrefixIsCorrect [(btc, BIP32, 'x'), (btc, BIP49, 'y'), (btc, BIP84, 'z'),
                                               (btcTest, BIP32, 't'), (btcTest, BIP49, 'u'), (btcTest, BIP84, 'v')]
+        prop "extended private key is valid on its network" $
+            forAll arbitraryXPrvKey $ \k ->
+                forAll arbitraryNetwork $ \net ->
+                    -- migration will never fail because we only migrate to available formats
+                    mapM_ (\fmt -> (isXPrvValidOnNetwork (fromJust $ migrateXPrvKey k net fmt) net) `shouldBe` True) $ Map.keys $ getExtSecretPrefix net
+        prop "extended public key is valid on its network" $
+            forAll arbitraryXPubKey $ \(_, k) ->
+                forAll arbitraryNetwork $ \net ->
+                    -- migration will never fail because we only migrate to available formats
+                    mapM_ (\fmt -> (isXPubValidOnNetwork (fromJust $ migrateXPubKey k net fmt) net) `shouldBe` True) $ Map.keys $ getExtPubKeyPrefix net
 
 migratedKeyPrefixIsCorrect :: (Network, KeySerializationFormat, Char) -> Spec
 migratedKeyPrefixIsCorrect (net, fmt, c) = do
